@@ -1,0 +1,399 @@
+import type { Express, Request, Response, NextFunction } from "express";
+import { createServer, type Server } from "http";
+import { storage } from "./storage";
+import { setupAuth, isAuthenticated } from "./replitAuth";
+import { getFilteredFoods } from "./foodFilter";
+import { registerChatRoutes } from "./replit_integrations/chat";
+import {
+  buildSystemPrompt,
+  buildUserPrompt,
+  validateProfileCompleteness,
+  callOpenAIForMealPlan,
+  parseMealPlanResponse,
+  type MealPlanContext,
+} from "./mealPlanBuilder";
+import { 
+  insertUserProfileSchema, 
+  insertDoshaAssessmentSchema,
+  insertUserHealthGoalSchema,
+  insertWellnessCheckinSchema,
+  healthGoals,
+  type HealthGoalKey 
+} from "@shared/schema";
+import { z } from "zod";
+
+export async function registerRoutes(
+  httpServer: Server,
+  app: Express
+): Promise<Server> {
+  
+  // Setup authentication
+  await setupAuth(app);
+
+  // Register Chat Routes
+  registerChatRoutes(app);
+
+  // Gemini configuration removed — external LLM integration disabled
+
+  // Get current authenticated user
+  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.userId;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Get user profile
+  app.get("/api/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.userId;
+      const profile = await storage.getProfile(userId);
+      
+      if (!profile) {
+        return res.json({ onboardingComplete: 0 });
+      }
+      
+      res.json(profile);
+    } catch (error) {
+      console.error("Error getting profile:", error);
+      res.status(500).json({ message: "Failed to get profile" });
+    }
+  });
+
+  // Create user profile
+  app.post("/api/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.userId;
+      
+      const profileData = insertUserProfileSchema.parse({
+        userId,
+        age: req.body.age,
+        gender: req.body.gender,
+        heightCm: req.body.heightCm,
+        weightKg: req.body.weightKg,
+        bmi: req.body.bmi,
+        maintenanceCalories: req.body.maintenanceCalories,
+        activityLevel: req.body.activityLevel,
+      });
+      
+      const existing = await storage.getProfile(userId);
+      
+      if (existing) {
+        const updated = await storage.updateProfile(userId, profileData);
+        return res.json(updated);
+      }
+      
+      const profile = await storage.createProfile(profileData);
+      res.json(profile);
+    } catch (error) {
+      console.error("Error creating profile:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create profile" });
+    }
+  });
+
+  // Get dosha assessment
+  app.get("/api/dosha-assessment", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.userId;
+      const assessment = await storage.getDoshaAssessment(userId);
+      
+      if (!assessment) {
+        return res.status(404).json({ message: "No assessment found" });
+      }
+      
+      res.json(assessment);
+    } catch (error) {
+      console.error("Error getting assessment:", error);
+      res.status(500).json({ message: "Failed to get assessment" });
+    }
+  });
+
+  // Create dosha assessment
+  app.post("/api/dosha-assessment", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.userId;
+      const { responses, vataScore, pittaScore, kaphaScore, percentages, constitution } = req.body;
+      
+      const assessmentData = insertDoshaAssessmentSchema.parse({
+        userId,
+        vataScore,
+        pittaScore,
+        kaphaScore,
+        vataPercent: percentages.vata,
+        pittaPercent: percentages.pitta,
+        kaphaPercent: percentages.kapha,
+        constitutionType: constitution.type,
+        primaryDosha: constitution.primary,
+        secondaryDosha: constitution.secondary,
+        responses,
+      });
+      
+      const assessment = await storage.createDoshaAssessment(assessmentData);
+      res.json(assessment);
+    } catch (error) {
+      console.error("Error creating assessment:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create assessment" });
+    }
+  });
+
+  // Get health goal
+  app.get("/api/health-goal", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.userId;
+      const goal = await storage.getHealthGoal(userId);
+      
+      if (!goal) {
+        return res.status(404).json({ message: "No health goal found" });
+      }
+      
+      res.json(goal);
+    } catch (error) {
+      console.error("Error getting health goal:", error);
+      res.status(500).json({ message: "Failed to get health goal" });
+    }
+  });
+
+  // Set health goal
+  app.post("/api/health-goal", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.userId;
+      
+      const goalData = insertUserHealthGoalSchema.parse({
+        userId,
+        goalType: req.body.goalType,
+        isBalancedDiet: req.body.isBalancedDiet ? 1 : 0,
+      });
+      
+      const goal = await storage.upsertHealthGoal(goalData);
+      res.json(goal);
+    } catch (error) {
+      console.error("Error setting health goal:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to set health goal" });
+    }
+  });
+
+  // Get filtered foods
+  app.get("/api/foods/filtered", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.userId;
+      const mode = req.query.mode as string;
+      const goalParam = req.query.goal as HealthGoalKey | undefined;
+      
+      const assessment = await storage.getDoshaAssessment(userId);
+      
+      if (!assessment) {
+        return res.status(400).json({ message: "Please complete dosha assessment first" });
+      }
+      
+      const constitutionType = assessment.constitutionType as 'single' | 'dual';
+      const primaryDosha = assessment.primaryDosha as 'vata' | 'pitta' | 'kapha';
+      const secondaryDosha = assessment.secondaryDosha as 'vata' | 'pitta' | 'kapha' | null;
+      
+      const healthGoal = mode === 'goal' ? goalParam : null;
+      
+      const filteredFoods = getFilteredFoods(
+        constitutionType,
+        primaryDosha,
+        secondaryDosha,
+        healthGoal || null
+      );
+      
+      res.json(filteredFoods);
+    } catch (error) {
+      console.error("Error filtering foods:", error);
+      res.status(500).json({ message: "Failed to filter foods" });
+    }
+  });
+
+  /**
+   * POST /api/mealplan
+   *
+   * Generates a personalised single-day Ayurvedic meal plan via OpenAI.
+   * Requires a complete user profile and a completed dosha assessment.
+   * Additional preferences (allergies, cuisine, etc.) can be passed in the body.
+   */
+  app.post("/api/mealplan", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.userId;
+
+      // ---- Fetch stored profile data ----
+      const [profile, assessment, healthGoal] = await Promise.all([
+        storage.getProfile(userId),
+        storage.getDoshaAssessment(userId),
+        storage.getHealthGoal(userId).catch(() => null),
+      ]);
+
+      if (!assessment) {
+        return res.status(400).json({
+          message: "Please complete your dosha assessment before generating a meal plan.",
+          missingFields: ["Dosha Assessment"],
+        });
+      }
+
+      // ---- Build context object ----
+      const mode = req.body.mode as string;
+      const goalParam = req.body.goal as HealthGoalKey | undefined;
+      const preferences = req.body.preferences || {};
+
+      // Determine health goal label
+      const activeGoal: HealthGoalKey | null =
+        mode === 'goal' && goalParam ? goalParam :
+        (healthGoal?.goalType as HealthGoalKey) ?? null;
+
+      const healthGoalLabel = activeGoal ? healthGoals[activeGoal] : null;
+
+      // Tier-1 recommended food names for the user's dosha
+      const constitutionType = assessment.constitutionType as 'single' | 'dual';
+      const primaryDosha = assessment.primaryDosha as 'vata' | 'pitta' | 'kapha';
+      const secondaryDosha = assessment.secondaryDosha as 'vata' | 'pitta' | 'kapha' | null;
+      const filteredFoods = getFilteredFoods(constitutionType, primaryDosha, secondaryDosha, activeGoal);
+      const recommendedFoods = [
+        ...(filteredFoods.tier_1 || []),
+        ...(filteredFoods.tier_2 || []),
+      ].map(f => f.name);
+
+      const ctx: MealPlanContext = {
+        age: profile?.age ?? null,
+        gender: profile?.gender ?? null,
+        heightCm: profile?.heightCm ?? null,
+        weightKg: profile?.weightKg ?? null,
+        bmi: profile?.bmi ?? null,
+        maintenanceCalories: profile?.maintenanceCalories ?? null,
+        activityLevel: profile?.activityLevel ?? null,
+        primaryDosha,
+        secondaryDosha,
+        constitutionType,
+        vataPercent: assessment.vataPercent,
+        pittaPercent: assessment.pittaPercent,
+        kaphaPercent: assessment.kaphaPercent,
+        healthGoalLabel,
+        recommendedFoods,
+        preferences: {
+          dietaryRestrictions: preferences.dietaryRestrictions || "No specific restrictions",
+          allergies: preferences.allergies || "None",
+          healthConditions: preferences.healthConditions || "None",
+          cuisinePreference: preferences.cuisinePreference || "Indian — any region",
+          budget: preferences.budget || "Moderate",
+          cookingTime: preferences.cookingTime || "Up to 1 hour",
+        },
+      };
+
+      // ---- Validate profile completeness ----
+      const validation = validateProfileCompleteness(ctx);
+      if (!validation.valid) {
+        return res.status(400).json({
+          message: `Please complete your profile before generating a meal plan. Missing: ${validation.missingFields.join(", ")}.`,
+          missingFields: validation.missingFields,
+        });
+      }
+
+      // ---- Build prompts ----
+      const systemPrompt = buildSystemPrompt();
+      const userPrompt = buildUserPrompt(ctx);
+
+      // ---- Call OpenAI ----
+      const rawResponse = await callOpenAIForMealPlan(systemPrompt, userPrompt);
+
+      // ---- Parse & validate response ----
+      const mealPlan = parseMealPlanResponse(rawResponse);
+
+      // ---- Persist for the user (non-fatal) ----
+      const goalKey = activeGoal ?? "balanced";
+      storage.saveMealPlan(userId, goalKey, mealPlan).catch((err) =>
+        console.error("Failed to save meal plan:", err?.message)
+      );
+
+      res.json(mealPlan);
+    } catch (error: any) {
+      console.error("Error generating meal plan:", error?.status, error?.code, error?.message);
+
+      // Surface a meaningful error for API key / quota issues
+      if (error?.status === 401 || error?.code === "invalid_api_key") {
+        return res.status(503).json({ message: "AI service unavailable — invalid API key." });
+      }
+      if (error?.status === 429) {
+        return res.status(429).json({ message: "AI service is busy. Please try again in a moment." });
+      }
+
+      res.status(500).json({ message: "Failed to generate meal plan. Please try again." });
+    }
+  });
+
+  // Retrieve the user's saved meal plan for a specific goal
+  app.get("/api/mealplan/saved", isAuthenticated, async (req: any, res) => {
+    try {
+      const goal = (req.query.goal as string) || "balanced";
+      const plan = await storage.getMealPlan(req.userId, goal);
+      if (!plan) return res.status(404).json({ message: "No saved meal plan." });
+      res.json(plan);
+    } catch (error) {
+      console.error("Error fetching saved meal plan:", error);
+      res.status(500).json({ message: "Failed to fetch saved meal plan." });
+    }
+  });
+
+  // ====== Wellness Re-evaluation Check-ins ======
+
+  // List all check-ins for the current user (oldest first; index 0 = baseline)
+  app.get("/api/wellness-checkins", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.userId;
+      const checkins = await storage.getWellnessCheckins(userId);
+      res.json(checkins);
+    } catch (error) {
+      console.error("Error fetching wellness check-ins:", error);
+      res.status(500).json({ message: "Failed to fetch wellness check-ins" });
+    }
+  });
+
+  // Submit a new wellness check-in
+  app.post("/api/wellness-checkin", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.userId;
+
+      const ratingField = z.coerce.number().int().min(1).max(5);
+      const bodySchema = z.object({
+        energy: ratingField,
+        digestion: ratingField,
+        sleep: ratingField,
+        mood: ratingField,
+        mentalClarity: ratingField,
+        skinHealth: ratingField,
+        immunity: ratingField,
+        calmness: ratingField,
+        notes: z.string().max(2000).optional().nullable(),
+      });
+
+      const parsed = bodySchema.parse(req.body);
+
+      const checkin = await storage.createWellnessCheckin({
+        userId,
+        ...parsed,
+        notes: parsed.notes ?? null,
+      });
+
+      res.json(checkin);
+    } catch (error) {
+      console.error("Error saving wellness check-in:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to save wellness check-in" });
+    }
+  });
+
+  return httpServer;
+}

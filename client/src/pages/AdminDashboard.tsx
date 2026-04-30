@@ -1,50 +1,36 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
+import { AdminLayout } from "@/components/AdminLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Activity, FileText, CheckCircle, XCircle, ShieldCheck, ArrowLeft, Download, Eye } from "lucide-react";
+import { Users, Activity, FileText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { format } from "date-fns";
 
 export default function AdminDashboard() {
-  const { data: stats, isLoading: statsLoading } = useQuery<any>({
+  const { data: stats, isLoading } = useQuery<any>({
     queryKey: ["/api/admin/stats"],
   });
 
-  const { data: users, isLoading: usersLoading } = useQuery<any[]>({
-    queryKey: ["/api/admin/users"],
-  });
-
-  if (statsLoading || usersLoading) {
+  if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
+      <AdminLayout>
+        <div className="flex h-[60vh] items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </AdminLayout>
     );
   }
 
   const COLORS = ['hsl(var(--vata))', 'hsl(var(--pitta))', 'hsl(var(--kapha))'];
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center px-4 max-w-7xl mx-auto justify-between">
-          <div className="flex items-center gap-2 font-serif text-xl font-bold">
-            <ShieldCheck className="w-6 h-6 text-primary" />
-            Nivarana Admin CRM
-          </div>
-          <Link href="/">
-            <Button variant="outline" size="sm" className="gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              Back to App
-            </Button>
-          </Link>
+    <AdminLayout>
+      <div className="space-y-6">
+        <div>
+          <h1 className="font-serif text-3xl font-bold tracking-tight">Platform Overview</h1>
+          <p className="text-muted-foreground mt-2">
+            High-level metrics and health insights across all registered users.
+          </p>
         </div>
-      </header>
 
-      <main className="container max-w-7xl mx-auto p-4 py-8 space-y-8">
-        
         {/* KPI Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Card>
@@ -130,73 +116,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
-
-        {/* User CRM Table */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-4">
-            <div>
-              <CardTitle>User Directory</CardTitle>
-              <CardDescription>Comprehensive list of all registered users</CardDescription>
-            </div>
-            <Button variant="outline" size="sm" className="gap-2 hidden sm:flex">
-              <Download className="w-4 h-4" />
-              Export CSV
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border overflow-hidden">
-              <Table>
-                <TableHeader className="bg-muted/50">
-                  <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead className="text-center">Onboarded</TableHead>
-                    <TableHead>Primary Dosha</TableHead>
-                    <TableHead>Health Goal</TableHead>
-                    <TableHead className="text-center">Admin</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users?.map((u: any) => (
-                    <TableRow key={u.id}>
-                      <TableCell className="font-medium">{u.email}</TableCell>
-                      <TableCell>{u.firstName} {u.lastName}</TableCell>
-                      <TableCell>{u.createdAt ? format(new Date(u.createdAt), "MMM d, yyyy") : "N/A"}</TableCell>
-                      <TableCell className="text-center">
-                        {u.onboardingComplete ? (
-                          <CheckCircle className="w-4 h-4 text-green-500 mx-auto" />
-                        ) : (
-                          <XCircle className="w-4 h-4 text-muted-foreground mx-auto" />
-                        )}
-                      </TableCell>
-                      <TableCell className="capitalize">{u.primaryDosha || "-"}</TableCell>
-                      <TableCell className="capitalize">{u.healthGoal?.replace('_', ' ') || "-"}</TableCell>
-                      <TableCell className="text-center">
-                        {u.isAdmin ? <ShieldCheck className="w-4 h-4 text-primary mx-auto" /> : ""}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {(!users || users.length === 0) && (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                        No users found
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   );
 }

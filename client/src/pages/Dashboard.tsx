@@ -28,6 +28,7 @@ import {
   TrendingUp,
   HeartPulse,
   RotateCw,
+  ShieldCheck,
 } from "lucide-react";
 
 const doshaIcons = {
@@ -121,6 +122,14 @@ export default function Dashboard() {
               <ThemeToggle />
               {user && (
                 <div className="flex items-center gap-2 pl-2 ml-1 border-l border-border/40">
+                  {user.isAdmin && (
+                    <Link href="/admin">
+                      <Button variant="outline" size="sm" className="flex gap-2 border-primary/20 hover:bg-primary/5 mr-2">
+                        <ShieldCheck className="w-4 h-4 text-primary" />
+                        Admin Panel
+                      </Button>
+                    </Link>
+                  )}
                   <Avatar className="h-9 w-9 ring-2 ring-primary/20 hover:ring-primary/40 transition-all">
                     <AvatarImage src={user.profileImageUrl || undefined} alt={user.firstName || "User"} />
                     <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">

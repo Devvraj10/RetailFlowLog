@@ -17,6 +17,7 @@ import HealthGoals from "@/pages/HealthGoals";
 import FoodList from "@/pages/FoodList";
 import WellnessCheckin from "@/pages/WellnessCheckin";
 import WellnessProgress from "@/pages/WellnessProgress";
+import AdminDashboard from "@/pages/AdminDashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -41,6 +42,7 @@ function Router() {
           <Route path="/foods" component={FoodList} />
           <Route path="/wellness-checkin" component={WellnessCheckin} />
           <Route path="/wellness-progress" component={WellnessProgress} />
+          <Route path="/admin" component={AdminDashboard} />
         </>
       )}
       <Route component={NotFound} />

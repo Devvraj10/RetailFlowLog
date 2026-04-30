@@ -30,6 +30,38 @@ export async function registerRoutes(
   // Setup authentication
   await setupAuth(app);
 
+  const isAdminUser = async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const user = await storage.getUser(req.userId);
+      if (user && user.isAdmin) {
+        return next();
+      }
+      res.status(403).json({ message: "Forbidden: Admin access required" });
+    } catch (e) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  };
+
+  app.get("/api/admin/stats", isAuthenticated, isAdminUser, async (req: any, res) => {
+    try {
+      const stats = await storage.getPlatformStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching platform stats:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  app.get("/api/admin/users", isAuthenticated, isAdminUser, async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsersWithProfiles();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
   // Register Chat Routes
   registerChatRoutes(app);
 

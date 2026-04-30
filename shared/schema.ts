@@ -9,6 +9,7 @@ import {
   serial,
   text,
   real,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -25,6 +26,7 @@ export const users = pgTable("users", {
   authProvider: varchar("auth_provider", { length: 20 }).default("email"),
   passwordSalt: varchar("password_salt"),
   passwordHash: varchar("password_hash"),
+  isAdmin: boolean("is_admin").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

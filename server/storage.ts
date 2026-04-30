@@ -39,6 +39,9 @@ export interface IStorage {
 
   getMealPlan(userId: string, goal: string): Promise<any | undefined>;
   saveMealPlan(userId: string, goal: string, planData: any): Promise<void>;
+  
+  getAllUsersWithProfiles(): Promise<any[]>;
+  getPlatformStats(): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -168,6 +171,66 @@ export class DatabaseStorage implements IStorage {
     } else {
       await db.insert(mealPlans).values({ userId, goal, planData });
     }
+  }
+
+  async getAllUsersWithProfiles(): Promise<any[]> {
+    const allUsers = await db.select().from(users);
+    const profiles = await db.select().from(userProfiles);
+    const doshas = await db.select().from(doshaAssessments);
+    const goals = await db.select().from(userHealthGoals);
+
+    return allUsers.map(u => {
+      const p = profiles.find(p => p.userId === u.id);
+      const userDoshas = doshas.filter(d => d.userId === u.id).sort((a,b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+      const d = userDoshas[0];
+      const g = goals.find(g => g.userId === u.id);
+
+      return {
+        id: u.id,
+        email: u.email,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        createdAt: u.createdAt,
+        isAdmin: u.isAdmin,
+        onboardingComplete: p?.onboardingComplete === 1,
+        primaryDosha: d?.primaryDosha || null,
+        healthGoal: g?.goalType || null,
+      };
+    }).sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async getPlatformStats(): Promise<any> {
+    const allUsers = await db.select().from(users);
+    const doshas = await db.select().from(doshaAssessments);
+    const goals = await db.select().from(userHealthGoals);
+    const plans = await db.select().from(mealPlans);
+
+    const doshaCount: Record<string, number> = { vata: 0, pitta: 0, kapha: 0 };
+    const userLatestDosha: Record<string, string> = {};
+    
+    for (const d of doshas.sort((a,b) => (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0))) {
+      userLatestDosha[d.userId] = d.primaryDosha;
+    }
+    for (const d of Object.values(userLatestDosha)) {
+      if (doshaCount[d] !== undefined) doshaCount[d]++;
+    }
+
+    const goalCount: Record<string, number> = {};
+    for (const g of goals) {
+      goalCount[g.goalType] = (goalCount[g.goalType] || 0) + 1;
+    }
+
+    return {
+      totalUsers: allUsers.length,
+      totalAssessments: Object.keys(userLatestDosha).length,
+      totalMealPlans: plans.length,
+      doshaDistribution: [
+        { name: 'Vata', value: doshaCount.vata },
+        { name: 'Pitta', value: doshaCount.pitta },
+        { name: 'Kapha', value: doshaCount.kapha },
+      ],
+      topGoals: Object.entries(goalCount).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 5)
+    };
   }
 }
 

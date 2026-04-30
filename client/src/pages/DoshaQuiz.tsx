@@ -152,8 +152,13 @@ export default function DoshaQuiz() {
               <Leaf className="h-6 w-6 text-primary" />
               <span className="font-serif text-lg font-semibold">Dosha Assessment</span>
             </div>
-            <div className="text-sm text-muted-foreground">
-              Question {currentQuestion + 1} of {doshaQuestions.length}
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-muted-foreground hidden sm:block">
+                Question {currentQuestion + 1} of {doshaQuestions.length}
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="text-muted-foreground">
+                Cancel
+              </Button>
             </div>
           </div>
         </div>

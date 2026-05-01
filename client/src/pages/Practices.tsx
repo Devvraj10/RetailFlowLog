@@ -21,6 +21,7 @@ function getYoutubeThumbnail(url: string) {
 
 export default function Practices() {
   const [activeMedia, setActiveMedia] = useState<MediaItem | null>(null);
+  const [infoMedia, setInfoMedia] = useState<MediaItem | null>(null);
   const [isMinimized, setIsMinimized] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "video" | "audio">("all");
 
@@ -66,8 +67,12 @@ export default function Practices() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
           
-          <div className="absolute top-3 right-3 z-20 flex gap-2">
-            <div className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-sm border border-white/10" title="Click to play and read full info">
+          <div className="absolute top-3 right-3 z-30 flex gap-2">
+            <div 
+              className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-sm border border-white/10 hover:bg-black/60" 
+              title="Read full info & benefits"
+              onClick={(e) => { e.stopPropagation(); setInfoMedia(item); }}
+            >
               <Info className="w-4 h-4 text-white/90" />
             </div>
           </div>
@@ -203,10 +208,10 @@ export default function Practices() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 100, scale: 0.9 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className={`fixed z-[100] bg-background border shadow-2xl overflow-hidden flex flex-col transition-[width,height,border-radius] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]
+              className={`fixed z-[100] bg-background border shadow-2xl overflow-hidden flex flex-col transition-[width,height,border-radius,bottom,right] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]
                 ${isMinimized 
-                  ? "bottom-6 right-6 w-[340px] rounded-2xl border-primary/30 shadow-primary/20" 
-                  : "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-4xl max-h-[90vh] rounded-3xl border-border/40 shadow-black/50"
+                  ? "bottom-4 right-4 w-[280px] sm:w-[320px] rounded-2xl border-primary/30 shadow-primary/20" 
+                  : "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-5xl max-h-[90vh] rounded-3xl border-border/40 shadow-black/50"
                 }
               `}
             >
@@ -280,12 +285,36 @@ export default function Practices() {
                   
                   <div className="mt-6 pt-6 border-t border-border/40">
                     <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Therapeutic Focus</h4>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 mb-6">
                       {activeMedia.conditionTags.map(tag => (
                         <span key={tag} className="px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-semibold capitalize">
                           {tag}
                         </span>
                       ))}
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-6 mt-6">
+                      <div className="bg-muted/30 rounded-xl p-5 border border-border/50">
+                         <h4 className="text-sm font-bold uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
+                           <Sparkles className="w-4 h-4" /> Immediate Perks
+                         </h4>
+                         <ul className="space-y-2">
+                           {activeMedia.perks.map(perk => (
+                             <li key={perk} className="flex items-start gap-2 text-sm text-muted-foreground">
+                               <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                               {perk}
+                             </li>
+                           ))}
+                         </ul>
+                      </div>
+                      <div className="bg-muted/30 rounded-xl p-5 border border-border/50">
+                         <h4 className="text-sm font-bold uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
+                           <Leaf className="w-4 h-4" /> Future Benefits
+                         </h4>
+                         <p className="text-sm text-muted-foreground leading-relaxed">
+                           {activeMedia.futureBenefits}
+                         </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -294,6 +323,83 @@ export default function Practices() {
           </>
         )}
       </AnimatePresence>
+
+      {/* Info Dialog */}
+      <Dialog open={!!infoMedia} onOpenChange={(open) => !open && setInfoMedia(null)}>
+        <DialogContent className="sm:max-w-2xl bg-background/95 backdrop-blur-xl border-border/40 p-6 overflow-hidden shadow-2xl">
+          {infoMedia && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-3 mb-2">
+                  {infoMedia.type === "video" ? (
+                    <div className="px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-500 text-xs font-bold uppercase tracking-widest flex items-center gap-1">
+                      <Video className="w-3.5 h-3.5" /> Video
+                    </div>
+                  ) : (
+                    <div className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-500 text-xs font-bold uppercase tracking-widest flex items-center gap-1">
+                      <Headphones className="w-3.5 h-3.5" /> Audio
+                    </div>
+                  )}
+                  <span className="text-muted-foreground text-sm font-semibold">{infoMedia.durationMins} mins</span>
+                </div>
+                <DialogTitle className="font-serif text-2xl sm:text-3xl leading-tight">
+                  {infoMedia.title}
+                </DialogTitle>
+                <DialogDescription className="text-base mt-3 leading-relaxed text-foreground/80">
+                  {infoMedia.description}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="mt-6">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Therapeutic Focus</h4>
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {infoMedia.conditionTags.map(tag => (
+                    <span key={tag} className="px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-semibold capitalize">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="bg-muted/30 rounded-xl p-5 border border-border/50">
+                     <h4 className="text-sm font-bold uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
+                       <Sparkles className="w-4 h-4" /> Immediate Perks
+                     </h4>
+                     <ul className="space-y-2">
+                       {infoMedia.perks.map(perk => (
+                         <li key={perk} className="flex items-start gap-2 text-sm text-muted-foreground">
+                           <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                           {perk}
+                         </li>
+                       ))}
+                     </ul>
+                  </div>
+                  <div className="bg-muted/30 rounded-xl p-5 border border-border/50">
+                     <h4 className="text-sm font-bold uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
+                       <Leaf className="w-4 h-4" /> Future Benefits
+                     </h4>
+                     <p className="text-sm text-muted-foreground leading-relaxed">
+                       {infoMedia.futureBenefits}
+                     </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 flex justify-end">
+                <Button 
+                  className="gap-2" 
+                  onClick={() => {
+                    handlePlay(infoMedia);
+                    setInfoMedia(null);
+                  }}
+                >
+                  <Play className="w-4 h-4" /> Start Practice
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

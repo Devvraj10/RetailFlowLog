@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -19,6 +19,7 @@ import WellnessCheckin from "@/pages/WellnessCheckin";
 import WellnessProgress from "@/pages/WellnessProgress";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminUsers from "@/pages/AdminUsers";
+import Practices from "@/pages/Practices";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -31,6 +32,11 @@ function Router() {
           <Route path="/" component={Landing} />
           <Route path="/login" component={Login} />
           <Route path="/signup" component={Signup} />
+          
+          {/* Catch-all fallback for unauthenticated users - forces them to login */}
+          <Route>
+            <Redirect to="/login" />
+          </Route>
         </>
       ) : (
         <>
@@ -41,6 +47,7 @@ function Router() {
           <Route path="/results" component={DoshaResults} />
           <Route path="/health-goals" component={HealthGoals} />
           <Route path="/foods" component={FoodList} />
+          <Route path="/practices" component={Practices} />
           <Route path="/wellness-checkin" component={WellnessCheckin} />
           <Route path="/wellness-progress" component={WellnessProgress} />
           <Route path="/admin" component={AdminDashboard} />

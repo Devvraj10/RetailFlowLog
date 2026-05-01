@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { doshaDescriptions } from "@/lib/doshaQuestions";
 import { getBMICategory } from "@/lib/healthCalculations";
+import { getRecommendations } from "@/lib/mediaLibrary";
 import type { UserProfile, DoshaAssessment, WellnessCheckin } from "@shared/schema";
 import {
   Leaf,
@@ -29,6 +30,7 @@ import {
   HeartPulse,
   RotateCw,
   ShieldCheck,
+  Video,
 } from "lucide-react";
 
 const doshaIcons = {
@@ -342,7 +344,7 @@ export default function Dashboard() {
         )}
 
         {/* Main Actions */}
-        <motion.div variants={itemVariants} className="grid md:grid-cols-2 gap-5 mb-8">
+        <motion.div variants={itemVariants} className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
           {/* Dosha Assessment Card */}
           <Card
             className={`overflow-hidden relative group transition-all duration-300 bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-300 dark:border-gray-600 ${
@@ -493,6 +495,51 @@ export default function Dashboard() {
                   <Utensils className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-muted-foreground text-sm leading-relaxed">
                     Complete your dosha assessment first to unlock personalized food recommendations.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Mind & Body Practices Card */}
+          <Card
+            className={`overflow-hidden relative group transition-all duration-300 bg-gray-50/80 dark:bg-gray-900/40 backdrop-blur-md border-2 border-gray-300 dark:border-gray-600 ${
+              !assessment
+                ? "opacity-60"
+                : "hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-lg hover:shadow-indigo-500/5"
+            }`}
+          >
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-400/40 via-indigo-500 to-indigo-400/40" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/[0.03] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+
+            <CardHeader className="relative pt-7 pb-4">
+              <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-indigo-500/15 to-indigo-500/5 flex items-center justify-center shadow-sm mb-3 group-hover:scale-105 group-hover:shadow-md transition-all duration-300">
+                <Video className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <CardTitle className="font-serif text-2xl tracking-tight">Mind & Body</CardTitle>
+              <CardDescription className="text-sm leading-relaxed mt-1.5">
+                Curated yoga, meditation, and breathwork for your dosha.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="relative pb-6">
+              {assessment ? (
+                <div className="flex flex-col gap-3">
+                  <Link href="/practices">
+                    <Button
+                      className="w-full gap-2 py-6 text-base font-semibold shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 hover:-translate-y-0.5 transition-all duration-300 bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                      <Sparkles className="w-5 h-5" />
+                      View Recommendations
+                      <ArrowRight className="w-4 h-4 ml-auto" />
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="text-center py-8 px-4 bg-white/30 dark:bg-white/5 rounded-2xl border border-dashed border-gray-300 dark:border-gray-600">
+                  <Video className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    Complete your dosha assessment to unlock targeted practices.
                   </p>
                 </div>
               )}

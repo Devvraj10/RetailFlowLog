@@ -21,6 +21,54 @@ export default function AdminUsers() {
     );
   }
 
+  const exportToCSV = async () => {
+    if (!users || users.length === 0) return;
+    
+    const headers = ['Email', 'First Name', 'Last Name', 'Joined', 'Onboarded', 'Primary Dosha', 'Health Goal', 'Is Admin'];
+    const csvData = users.map(u => [
+      u.email,
+      u.firstName || '',
+      u.lastName || '',
+      u.createdAt ? format(new Date(u.createdAt), "MMM d, yyyy") : '',
+      u.onboardingComplete ? 'Yes' : 'No',
+      u.primaryDosha || '',
+      u.healthGoal?.replace('_', ' ') || '',
+      u.isAdmin ? 'Yes' : 'No'
+    ].map(val => `"${val}"`).join(','));
+    
+    const csvString = [headers.join(','), ...csvData].join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    
+    try {
+      // Use modern File System Access API to force a "Save As" prompt
+      if ('showSaveFilePicker' in window) {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: 'nivarana_users.csv',
+          types: [{
+            description: 'CSV File',
+            accept: { 'text/csv': ['.csv'] },
+          }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        return;
+      }
+    } catch (err: any) {
+      // User cancelled the prompt
+      if (err.name === 'AbortError') return;
+      console.error('Save failed:', err);
+    }
+    
+    // Fallback for browsers (like Firefox) that don't support showSaveFilePicker
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'nivarana_users.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -32,12 +80,12 @@ export default function AdminUsers() {
         </div>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-4">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <div>
               <CardTitle>All Registered Users</CardTitle>
               <CardDescription>Total of {users?.length || 0} accounts in the system</CardDescription>
             </div>
-            <Button variant="outline" size="sm" className="gap-2 hidden sm:flex">
+            <Button variant="outline" size="sm" className="gap-2 hidden sm:flex" onClick={exportToCSV}>
               <Download className="w-4 h-4" />
               Export CSV
             </Button>

@@ -16,9 +16,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50/50 dark:bg-background flex">
+    <div className="h-screen overflow-hidden bg-gray-50/50 dark:bg-background flex">
       {/* Sidebar */}
-      <aside className="w-64 border-r bg-white dark:bg-card/50 backdrop-blur-xl hidden md:flex flex-col fixed inset-y-0 z-50">
+      <aside className="w-64 border-r bg-white dark:bg-card/50 backdrop-blur-xl hidden md:flex flex-col flex-shrink-0 z-50">
         <div className="h-16 flex items-center px-6 border-b">
           <div className="flex items-center gap-2 font-serif text-xl font-bold">
             <ShieldCheck className="w-6 h-6 text-primary" />
@@ -26,7 +26,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+        <nav className="flex-1 px-4 py-6 space-y-2">
           {navigation.map((item) => {
             const isActive = location === item.href;
             const Icon = item.icon;
@@ -59,8 +59,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col md:ml-64 min-w-0">
-        <header className="h-16 sticky top-0 z-40 bg-white/80 dark:bg-background/80 backdrop-blur-md border-b flex items-center justify-between px-4 sm:px-6">
+      <div className="flex-1 flex flex-col min-w-0 h-screen">
+        <header className="h-16 flex-shrink-0 bg-white/80 dark:bg-background/80 backdrop-blur-md border-b flex items-center justify-between px-4 sm:px-6 z-40">
           <div className="flex items-center md:hidden gap-2 font-serif font-bold text-lg">
             <ShieldCheck className="w-5 h-5 text-primary" />
             CRM
@@ -77,8 +77,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          {children}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
         </main>
       </div>
     </div>

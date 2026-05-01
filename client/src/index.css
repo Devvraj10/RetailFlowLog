@@ -324,7 +324,7 @@
   }
   
   ::-webkit-scrollbar-track {
-    background: hsl(var(--muted));
+    background: transparent;
     border-radius: 4px;
   }
   
